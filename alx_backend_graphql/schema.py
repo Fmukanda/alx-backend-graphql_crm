@@ -1,4 +1,5 @@
 import graphene
+from crm.schema import Query as CRMQuery, Mutation as CRMMutation
 
 class Query(graphene.ObjectType):
     """Root GraphQL query class"""
@@ -11,5 +12,12 @@ class Query(graphene.ObjectType):
         """Resolver for the hello field"""
         return "Hello, GraphQL!"
 
-# Create schema instance
-schema = graphene.Schema(query=Query)
+class Query(CRMQuery, graphene.ObjectType):
+    """Root query that combines all app queries"""
+    pass
+
+class Mutation(CRMMutation, graphene.ObjectType):
+    """Root mutation that combines all app mutations"""
+    pass
+
+schema = graphene.Schema(query=Query, mutation=Mutation)
