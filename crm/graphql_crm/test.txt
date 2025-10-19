@@ -1,0 +1,228 @@
+Create Single Customer
+mutation {
+  createCustomer(input: {
+    name: "Alice",
+    email: "alice@example.com", 
+    phone: "+1234567890"
+  }) {
+    customer {
+      id
+      name
+      email
+      phone
+    }
+    message
+  }
+}
+
+Bulk Create Customers
+mutation {
+  bulkCreateCustomers(input: {
+    customers: [
+      { name: "Bob", email: "bob@example.com", phone: "123-456-7890" },
+      { name: "Carol", email: "carol@example.com" }
+    ]
+  }) {
+    customers {
+      id
+      name
+      email
+    }
+    errors
+  }
+}
+
+Create Product
+mutation {
+  createProduct(input: {
+    name: "Laptop",
+    price: 999.99,
+    stock: 10
+  }) {
+    product {
+      id
+      name
+      price
+      stock
+    }
+  }
+}
+
+Create Order with Products
+mutation {
+  createOrder(input: {
+    customerId: "1",
+    productIds: ["1", "2"]
+  }) {
+    order {
+      id
+      customer {
+        name
+      }
+      products {
+        name
+        price
+      }
+      totalAmount
+      orderDate
+    }
+  }
+}
+
+
+Error Handling Examples
+
+Duplicate Email:
+mutation {
+  createCustomer(input: {
+    name: "Duplicate",
+    email: "alice@example.com",  # Already exists
+    phone: "+1234567890"
+  }) {
+    success
+    message
+    errors
+  }
+}
+
+Invalid Phone:
+mutation {
+  createCustomer(input: {
+    name: "Invalid Phone",
+    email: "test@example.com",
+    phone: "invalid-phone"
+  }) {
+    success
+    message
+    errors
+  }
+}
+
+Non-existent Customer:
+mutation {
+  createOrder(input: {
+    customerId: "999",  # Doesn't exist
+    productIds: ["1"]
+  }) {
+    success
+    message
+    errors
+  }
+}
+
+
+Filter Customers by Name and Creation Date
+query {
+  allCustomers(filter: { nameIcontains: "Ali", createdAtGte: "2025-01-01" }) {
+    edges {
+      node {
+        id
+        name
+        email
+        createdAt
+      }
+    }
+  }
+}
+
+
+Filter Products by Price Range and Sort by Stock
+query {
+  allProducts(filter: { priceGte: 100, priceLte: 1000 }, orderBy: "-stock") {
+    edges {
+      node {
+        id
+        name
+        price
+        stock
+      }
+    }
+  }
+}
+
+
+Filter Orders by Customer Name, Product Name, and Total Amount
+query {
+  allOrders(filter: { customerName: "Alice", productName: "Laptop", totalAmountGte: 500 }) {
+    edges {
+      node {
+        id
+        customer {
+          name
+        }
+        products {
+          name
+          price
+        }
+        totalAmount
+        orderDate
+      }
+    }
+  }
+}
+
+
+Find customers with phone numbers starting with +1:
+query {
+  allCustomers(filter: { phonePattern: "+1" }) {
+    edges {
+      node {
+        id
+        name
+        phone
+      }
+    }
+  }
+}
+
+
+Find products with low stock:
+query {
+  allProducts(filter: { lowStock: true }) {
+    edges {
+      node {
+        id
+        name
+        stock
+      }
+    }
+  }
+}
+
+
+Filter orders containing specific product:
+query {
+  allOrders(filter: { productId: "1" }) {
+    edges {
+      node {
+        id
+        customer {
+          name
+        }
+        totalAmount
+      }
+    }
+  }
+}
+
+
+Complex filtering with multiple conditions:
+query {
+  allCustomers(
+    filter: {
+      emailIcontains: "example.com",
+      createdAtGte: "2025-01-01",
+      createdAtLte: "2025-12-31"
+    },
+    orderBy: "name"
+  ) {
+    edges {
+      node {
+        id
+        name
+        email
+        createdAt
+      }
+    }
+  }
+}
