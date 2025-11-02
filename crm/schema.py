@@ -396,8 +396,20 @@ class CreateOrder(graphene.Mutation):
                 errors=[str(e)]
             )
 
+class CRMStatsType(graphene.ObjectType):
+    """Type for CRM statistics"""
+    total_customers = graphene.Int()
+    total_orders = graphene.Int()
+    total_revenue = graphene.Decimal()
+    total_products = graphene.Int()
+    low_stock_products = graphene.Int()
+    average_order_value = graphene.Decimal()
+
 # Query Class
 class Query(graphene.ObjectType):
+    crm_stats = graphene.Field(CRMStatsType)
+    recent_orders = graphene.List(OrderType, limit=graphene.Int(default_value=5))
+    
     hello = graphene.String(description="A simple hello world GraphQL field")
     
     # Customer queries
@@ -527,6 +539,37 @@ class Query(graphene.ObjectType):
             queryset = queryset.order_by(order_by)
         
         return queryset.distinct()
+    
+    def resolve_crm_stats(self, info):
+        """Resolve CRM statistics"""
+        total_customers = Customer.objects.count()
+        total_orders = Order.objects.count()
+        total_products = Product.objects.count()
+        
+        # Calculate total revenue
+        total_revenue = Order.objects.aggregate(
+            total=models.Sum('total_amount')
+        )['total'] or decimal.Decimal('0.00')
+        
+        # Calculate low stock products
+        low_stock_products = Product.objects.filter(stock__lt=10).count()
+        
+        # Calculate average order value
+        avg_order_value = total_revenue / total_orders if total_orders > 0 else decimal.Decimal('0.00')
+        
+        return CRMStatsType(
+            total_customers=total_customers,
+            total_orders=total_orders,
+            total_revenue=total_revenue,
+            total_products=total_products,
+            low_stock_products=low_stock_products,
+            average_order_value=avg_order_value
+        )
+    
+    def resolve_recent_orders(self, info, limit=5):
+        """Resolve recent orders"""
+        return Order.objects.all().order_by('-order_date')[:limit]
+        
 
 # Add to existing Response Types
 class LowStockUpdateResponse(graphene.ObjectType):
@@ -621,4 +664,5 @@ class Mutation(graphene.ObjectType):
     create_order = CreateOrder.Field()
     update_order = UpdateOrder.Field()
     delete_order = DeleteOrder.Field()
+
 
