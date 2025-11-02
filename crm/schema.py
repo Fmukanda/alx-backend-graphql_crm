@@ -527,9 +527,96 @@ class Query(graphene.ObjectType):
         
         return queryset.distinct()
 
-# Mutation Class
+# Add to existing Response Types
+class LowStockUpdateResponse(graphene.ObjectType):
+    success = graphene.Boolean()
+    updated_products = graphene.List(ProductType)
+    message = graphene.String()
+    errors = graphene.List(graphene.String)
+
+# Add to existing Mutations
+class UpdateLowStockProducts(graphene.Mutation):
+    """Mutation to update low-stock products by restocking them"""
+    
+    class Arguments:
+        restock_amount = graphene.Int(default_value=10)
+
+    Output = LowStockUpdateResponse
+
+    @staticmethod
+    @transaction.atomic
+    def mutate(root, info, restock_amount=10):
+        try:
+            # Validate restock amount
+            if restock_amount <= 0:
+                return LowStockUpdateResponse(
+                    success=False,
+                    updated_products=[],
+                    message="Validation failed",
+                    errors=["Restock amount must be greater than 0"]
+                )
+
+            # Find products with low stock (stock < 10)
+            low_stock_products = Product.objects.filter(stock__lt=10)
+            
+            if not low_stock_products.exists():
+                return LowStockUpdateResponse(
+                    success=True,
+                    updated_products=[],
+                    message="No low-stock products found",
+                    errors=None
+                )
+
+            # Update stock for each low-stock product
+            updated_products = []
+            for product in low_stock_products:
+                old_stock = product.stock
+                product.stock += restock_amount
+                product.full_clean()
+                product.save()
+                updated_products.append(product)
+
+            return LowStockUpdateResponse(
+                success=True,
+                updated_products=updated_products,
+                message=f"Successfully updated {len(updated_products)} low-stock products",
+                errors=None
+            )
+
+        except DjangoValidationError as e:
+            errors = []
+            for field, field_errors in e.message_dict.items():
+                for error in field_errors:
+                    errors.append(f"{field}: {error}")
+            return LowStockUpdateResponse(
+                success=False,
+                updated_products=[],
+                message="Validation failed during update",
+                errors=errors
+            )
+        except Exception as e:
+            return LowStockUpdateResponse(
+                success=False,
+                updated_products=[],
+                message="Failed to update low-stock products",
+                errors=[str(e)]
+            )
+
+# Update the Mutation class to include the new mutation
 class Mutation(graphene.ObjectType):
+    # Customer mutations
     create_customer = CreateCustomer.Field()
+    update_customer = UpdateCustomer.Field()
+    delete_customer = DeleteCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
+    
+    # Product mutations
     create_product = CreateProduct.Field()
+    update_product = UpdateProduct.Field()
+    delete_product = DeleteProduct.Field()
+    update_low_stock_products = UpdateLowStockProducts.Field()  # Add this line
+    
+    # Order mutations
     create_order = CreateOrder.Field()
+    update_order = UpdateOrder.Field()
+    delete_order = DeleteOrder.Field()
