@@ -138,3 +138,12 @@ GRAPHENE = {
     ],
 }
 
+# Add CRONJOBS configuration at the bottom of settings.py
+CRONJOBS = [
+    ('*/5 * * * *', 'crm.cron.log_crm_heartbeat'),
+]
+
+# Optional: Configure cron job logging
+CRONTAB_COMMAND_SUFFIX = '2>&1'  # Capture stderr as well
+
+
