@@ -140,7 +140,8 @@ GRAPHENE = {
 
 # Cron jobs configuration
 CRONJOBS = [
-    ('*/5 * * * *', 'crm.cron.log_crm_heartbeat', '>> /tmp/crm_cron.log 2>&1'),
+    ('*/5 * * * *', 'crm.cron.log_crm_heartbeat'),
+    ('0 */12 * * *', 'crm.cron.update_low_stock'),
 ]
 
 # Optional: Configure cron job logging more precisely
@@ -153,5 +154,6 @@ CACHES = {
         'LOCATION': 'unique-snowflake',
     }
 }
+
 
 
