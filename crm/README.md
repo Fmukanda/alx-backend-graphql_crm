@@ -44,25 +44,25 @@ celery -A crm worker -l info
 celery -A crm beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
 ```
 
-### Check Redis Connection
+### 7. Check Redis Connection
 ```
 redis-cli ping
 ```
 
-### Test Celery Task Manually
-**1. Start Django shell:**
+### 8. Test Celery Task Manually
+**Start Django shell:**
 ```
 python manage.py shell
 ```
 
-**2. Test the task:**
+**Test the task:**
 ```
 from crm.tasks import generate_crm_report
 result = generate_crm_report.delay()
 print(result.get(timeout=30))
 ```
 
-**3. Check Logs**
+**Check Logs**
 ```
 # CRM reports log
 tail -f /tmp/crm_report_log.txt
@@ -80,7 +80,7 @@ pip install flower
 celery -A crm flower
 ```
 
-### Manual Task Execution
+### 9. Manual Task Execution
 ```
 python manage.py shell
 ```
@@ -95,13 +95,13 @@ from datetime import datetime, timedelta
 generate_crm_report.apply_async(eta=datetime.now() + timedelta(minutes=5))
 ```
 
-### Performance Tips
+### 10. Performance Tips
  - Use Redis persistence for important tasks
  - Monitor Celery queue lengths
  - Set appropriate task timeouts
  - Use task retries for transient failures
 
-### Create a Management Command for Testing
+### 11. Create a Management Command for Testing
 
 Create `crm/management/commands/test_celery.py`:
 
