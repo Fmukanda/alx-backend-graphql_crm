@@ -138,12 +138,20 @@ GRAPHENE = {
     ],
 }
 
-# Add CRONJOBS configuration at the bottom of settings.py
+# Cron jobs configuration
 CRONJOBS = [
-    ('*/5 * * * *', 'crm.cron.log_crm_heartbeat'),
+    ('*/5 * * * *', 'crm.cron.log_crm_heartbeat', '>> /tmp/crm_cron.log 2>&1'),
 ]
 
-# Optional: Configure cron job logging
-CRONTAB_COMMAND_SUFFIX = '2>&1'  # Capture stderr as well
+# Optional: Configure cron job logging more precisely
+CRONTAB_COMMAND_SUFFIX = '2>&1'
+
+# Cache configuration (if testing cache health)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
 
 
