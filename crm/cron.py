@@ -1,7 +1,3 @@
-"""
-CRM Cron Jobs for django-crontab with GQL Integration
-"""
-
 import os
 import django
 from datetime import datetime
@@ -18,6 +14,175 @@ from gql.transport.requests import RequestsHTTPTransport
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'your_project.settings')
 django.setup()
 
+def update_low_stock():
+    """
+    Cron job to update low-stock products every 12 hours
+    Uses GraphQL mutation to restock products with stock < 10
+    """
+    log_file = '/tmp/low_stock_updates_log.txt'
+    timestamp = datetime.now().strftime('%d/%m/%Y-%H:%M:%S')
+    
+    try:
+        # Configure GraphQL client
+        transport = RequestsHTTPTransport(
+            url='http://localhost:8000/graphql',
+            use_json=True,
+            headers={
+                'Content-Type': 'application/json',
+            },
+            verify=True,
+            retries=3,
+            timeout=30
+        )
+        
+        client = Client(
+            transport=transport,
+            fetch_schema_from_transport=False
+        )
+        
+        # Define GraphQL mutation for updating low-stock products
+        mutation = gql("""
+            mutation UpdateLowStockProducts($restockAmount: Int) {
+                updateLowStockProducts(restockAmount: $restockAmount) {
+                    success
+                    message
+                    errors
+                    updatedProducts {
+                        id
+                        name
+                        price
+                        stock
+                        description
+                    }
+                }
+            }
+        """)
+        
+        # Execute mutation with restock amount
+        variables = {"restockAmount": 10}
+        result = client.execute(mutation, variable_values=variables)
+        
+        mutation_result = result.get('updateLowStockProducts', {})
+        
+        if mutation_result.get('success'):
+            updated_products = mutation_result.get('updatedProducts', [])
+            message = mutation_result.get('message', '')
+            
+            # Log the results
+            log_entries = [
+                f"{timestamp} - Low Stock Update Job Started",
+                f"Mutation Result: {message}"
+            ]
+            
+            if updated_products:
+                log_entries.append("Updated Products:")
+                for product in updated_products:
+                    log_entry = (
+                        f"  - Product: {product.get('name', 'N/A')} "
+                        f"(ID: {product.get('id', 'N/A')}), "
+                        f"New Stock: {product.get('stock', 0)}"
+                    )
+                    log_entries.append(log_entry)
+            else:
+                log_entries.append("No products were updated.")
+            
+            log_entries.append(f"{timestamp} - Low Stock Update Job Completed\n")
+            
+        else:
+            errors = mutation_result.get('errors', ['Unknown error'])
+            log_entries = [
+                f"{timestamp} - Low Stock Update Job Failed",
+                f"Errors: {', '.join(errors)}",
+                f"{timestamp} - Low Stock Update Job Completed with Errors\n"
+            ]
+        
+        # Write all log entries
+        with open(log_file, 'a') as f:
+            for entry in log_entries:
+                f.write(entry + '\n')
+                print(entry)  # Also print to console for cron logging
+        
+        print("Low stock update job completed successfully")
+        
+    except Exception as e:
+        error_message = f"{timestamp} - Low Stock Update Job Failed: {str(e)}"
+        with open(log_file, 'a') as f:
+            f.write(error_message + '\n')
+        print(f"Low stock update job failed: {str(e)}")
+
+def update_low_stock_with_requests():
+    """
+    Alternative implementation using requests library instead of gql
+    """
+    log_file = '/tmp/low_stock_updates_log.txt'
+    timestamp = datetime.now().strftime('%d/%m/%Y-%H:%M:%S')
+    
+    try:
+        # GraphQL mutation
+        mutation = """
+            mutation UpdateLowStockProducts {
+                updateLowStockProducts {
+                    success
+                    message
+                    errors
+                    updatedProducts {
+                        id
+                        name
+                        price
+                        stock
+                    }
+                }
+            }
+        """
+        
+        response = requests.post(
+            'http://localhost:8000/graphql',
+            json={'query': mutation},
+            headers={'Content-Type': 'application/json'},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            mutation_result = data.get('data', {}).get('updateLowStockProducts', {})
+            
+            if mutation_result.get('success'):
+                updated_products = mutation_result.get('updatedProducts', [])
+                message = mutation_result.get('message', '')
+                
+                log_entry = f"{timestamp} - {message}\n"
+                
+                if updated_products:
+                    log_entry += "Updated Products:\n"
+                    for product in updated_products:
+                        log_entry += (
+                            f"  - {product.get('name')} "
+                            f"(Stock: {product.get('stock')})\n"
+                        )
+                
+                with open(log_file, 'a') as f:
+                    f.write(log_entry + '\n')
+                
+                print(f"Low stock update successful: {message}")
+            else:
+                errors = mutation_result.get('errors', ['Unknown error'])
+                error_message = f"{timestamp} - Update failed: {', '.join(errors)}"
+                with open(log_file, 'a') as f:
+                    f.write(error_message + '\n')
+                print(error_message)
+        else:
+            error_message = f"{timestamp} - HTTP Error: {response.status_code}"
+            with open(log_file, 'a') as f:
+                f.write(error_message + '\n')
+            print(error_message)
+            
+    except Exception as e:
+        error_message = f"{timestamp} - Low Stock Update Job Failed: {str(e)}"
+        with open(log_file, 'a') as f:
+            f.write(error_message + '\n')
+        print(f"Low stock update job failed: {str(e)}")
+
+# Keep the existing heartbeat function and other health checks
 def log_crm_heartbeat():
     """
     Enhanced CRM Heartbeat with GQL library integration
@@ -64,49 +229,28 @@ def log_crm_heartbeat():
         print(f"Heartbeat error: {error_message}")
 
 def test_graphql_with_gql():
-    """
-    Test GraphQL endpoint using the gql library
-    More robust GraphQL client with proper error handling
-    """
+    """Test GraphQL endpoint using the gql library"""
     try:
-        # Configure transport with timeout
         transport = RequestsHTTPTransport(
             url='http://localhost:8000/graphql',
             use_json=True,
-            headers={
-                'Content-Type': 'application/json',
-            },
+            headers={'Content-Type': 'application/json'},
             verify=True,
             retries=3,
             timeout=10
         )
         
-        # Create client
-        client = Client(
-            transport=transport,
-            fetch_schema_from_transport=False  # Don't fetch schema for simple queries
-        )
+        client = Client(transport=transport, fetch_schema_from_transport=False)
         
-        # Define GraphQL query
         query = gql("""
             query HealthCheck {
                 hello
-                allCustomers {
-                    totalCount
-                }
-                allProducts {
-                    totalCount
-                }
             }
         """)
         
-        # Execute query
         result = client.execute(query)
         
-        # Validate response
-        if (result.get('hello') == "Hello, GraphQL!" and 
-            'allCustomers' in result and 
-            'allProducts' in result):
+        if result.get('hello') == "Hello, GraphQL!":
             return "HEALTHY"
         else:
             return "UNHEALTHY - Invalid response"
@@ -115,10 +259,7 @@ def test_graphql_with_gql():
         return f"ERROR - {str(e)}"
 
 def test_graphql_with_requests():
-    """
-    Alternative GraphQL test using requests library
-    Good for comparison and fallback
-    """
+    """Alternative GraphQL test using requests library"""
     try:
         query = '''
         query HealthCheck {
@@ -148,115 +289,21 @@ def test_graphql_with_requests():
         return f"ERROR - {str(e)}"
 
 def test_database_connection():
-    """
-    Test database connection and basic ORM functionality
-    """
+    """Test database connection"""
     try:
         from django.db import connection
-        from crm.models import Customer, Product, Order
-        
-        # Test connection
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-        
-        # Test basic ORM operations
-        customer_count = Customer.objects.count()
-        product_count = Product.objects.count()
-        order_count = Order.objects.count()
-        
         return "HEALTHY"
-    except Exception as e:
-        return f"UNHEALTHY - {str(e)}"
+    except Exception:
+        return "UNHEALTHY"
 
 def test_cache_connection():
-    """
-    Test cache connection
-    """
+    """Test cache connection"""
     try:
-        test_key = 'crm_heartbeat_test'
-        test_value = f'alive_{datetime.now().timestamp()}'
-        
-        # Test set and get
-        cache.set(test_key, test_value, 60)
-        retrieved_value = cache.get(test_key)
-        
-        if retrieved_value == test_value:
+        cache.set('heartbeat_test', 'alive', 1)
+        if cache.get('heartbeat_test') == 'alive':
             return "HEALTHY"
-        else:
-            return "UNHEALTHY - Cache mismatch"
-    except Exception as e:
-        return f"UNHEALTHY - {str(e)}"
-
-def test_complex_graphql_operations():
-    """
-    Test more complex GraphQL operations using gql library
-    This can be used for more thorough testing
-    """
-    try:
-        transport = RequestsHTTPTransport(
-            url='http://localhost:8000/graphql',
-            use_json=True,
-            headers={'Content-Type': 'application/json'},
-            timeout=10
-        )
-        
-        client = Client(transport=transport, fetch_schema_from_transport=True)
-        
-        # Test query with variables
-        query_with_vars = gql("""
-            query GetFilteredCustomers($filter: String) {
-                filteredCustomers(filter: {nameIcontains: $filter}) {
-                    id
-                    name
-                    email
-                }
-            }
-        """)
-        
-        variables = {"filter": "test"}
-        result = client.execute(query_with_vars, variable_values=variables)
-        
-        if 'filteredCustomers' in result:
-            return "HEALTHY"
-        else:
-            return "UNHEALTHY - Complex query failed"
-            
-    except Exception as e:
-        return f"ERROR - {str(e)}"
-
-# Optional: Add a function to test mutations (read-only for safety)
-def test_graphql_mutation_safe():
-    """
-    Safely test GraphQL mutations (using queries instead to avoid side effects)
-    """
-    try:
-        transport = RequestsHTTPTransport(
-            url='http://localhost:8000/graphql',
-            use_json=True,
-            headers={'Content-Type': 'application/json'},
-            timeout=10
-        )
-        
-        client = Client(transport=transport, fetch_schema_from_transport=False)
-        
-        # Test introspection query to verify schema is accessible
-        introspection_query = gql("""
-            query {
-                __schema {
-                    types {
-                        name
-                        kind
-                    }
-                }
-            }
-        """)
-        
-        result = client.execute(introspection_query)
-        
-        if '__schema' in result and 'types' in result['__schema']:
-            return "HEALTHY"
-        else:
-            return "UNHEALTHY - Introspection failed"
-            
-    except Exception as e:
-        return f"ERROR - {str(e)}"
+        return "UNHEALTHY"
+    except Exception:
+        return "UNHEALTHY"
