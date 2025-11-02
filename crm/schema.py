@@ -8,6 +8,7 @@ import decimal
 import re
 
 from .models import Customer, Product, Order, OrderItem
+# from crm.models import Product
 
 # GraphQL Types
 class CustomerType(DjangoObjectType):
@@ -620,3 +621,4 @@ class Mutation(graphene.ObjectType):
     create_order = CreateOrder.Field()
     update_order = UpdateOrder.Field()
     delete_order = DeleteOrder.Field()
+
